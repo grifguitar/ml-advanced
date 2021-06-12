@@ -80,6 +80,7 @@ def solve():
 
         total_rewards.append(total_reward)
 
+    plt.clf()
     plt.title("total_rewards")
     plt.plot(total_rewards)
     plt.show()
