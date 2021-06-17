@@ -76,11 +76,11 @@ class Agent:
 
 def draw(env, i_episode, i_step, state, reward, info, eps):
     # env.render()
-    img = np.reshape(state, (160, 480))
+    plt.clf()
     plt.title('frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
     plt.axis('off')
-    plt.imshow(img)
-    plt.savefig('new_images/frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
+    plt.imshow(np.reshape(state, (160, 480)))
+    plt.savefig('D:/new_images/frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
     # plt.show()
     print(i_episode, i_step, reward, info.get('ale.lives'), '%.4f' % eps)
 
@@ -208,10 +208,24 @@ def solve():
 
         total_rewards.append(total_reward)
 
+        # save:
+
+        plt.clf()
+        plt.title("total_rewards")
+        plt.plot(total_rewards)
+        plt.savefig('D:/new_images/total_rewards_{x}.png'.format_map({'x': i_episode}))
+
+        plt.clf()
+        plt.title("total_qs")
+        plt.plot(total_qs)
+        plt.savefig('D:/new_images/total_qs_{x}.png'.format_map({'x': i_episode}))
+
+    plt.clf()
     plt.title("total_rewards")
     plt.plot(total_rewards)
     plt.show()
 
+    plt.clf()
     plt.title("total_qs")
     plt.plot(total_qs)
     plt.show()
