@@ -4,27 +4,31 @@ import collections as cll
 import numpy as np
 import random as rnd
 import matplotlib.pyplot as plt
+import PIL
 
 
 class Agent:
     def _build_model(self):
         model = tf.keras.Sequential()
-        model.add(tf.keras.layers.InputLayer(input_shape=self.observation_shape))
+        model.add(tf.keras.layers.Conv2D(32, (8, 8), strides=(4, 4), activation='relu', input_shape=self.input_shape))
+        model.add(tf.keras.layers.Conv2D(64, (4, 4), strides=(2, 2), activation='relu', input_shape=self.input_shape))
+        model.add(tf.keras.layers.Conv2D(64, (3, 3), strides=(1, 1), activation='relu', input_shape=self.input_shape))
         model.add(tf.keras.layers.Flatten())
         model.add(tf.keras.layers.Dense(32, activation='relu'))
         model.add(tf.keras.layers.Dense(32, activation='relu'))
         model.add(tf.keras.layers.Dense(self.action_size, activation='linear'))
         model.compile(optimizer=tf.keras.optimizers.Adam(),
-                      loss='mse')
+                      loss=tf.keras.losses.huber,
+                      metrics=['accuracy'])
         return model
 
-    def __init__(self, env, max_total_step_cnt, gamma=0.6, max_epsilon=0.3, min_epsilon=0.01):
+    def __init__(self, env, input_shape, max_total_step_cnt, gamma=0.6, max_epsilon=0.3, min_epsilon=0.01):
         self.env = env
 
-        self.observation_shape = env.observation_space.shape
+        self.input_shape = input_shape
         self.action_size = env.action_space.n
 
-        self.buffer = cll.deque(maxlen=10000)
+        self.buffer = cll.deque(maxlen=100000)
 
         self.gamma = gamma
         self.max_epsilon = max_epsilon
@@ -70,24 +74,71 @@ class Agent:
             self.q_network.fit(state, predictions, epochs=1, verbose=0)
 
 
-def draw(env, i_episode, i_step, state, reward, eps):
-    # env.render()
-    print(i_episode, i_step, state, reward, eps)
+def draw(env, i_episode, i_step, state, reward, info, eps):
+    env.render()
+    print(i_episode, i_step, reward, info.get('ale.lives'), '%.4f' % eps)
+
+
+def merge_frames(frames):
+    images = list()
+    for frame in frames:
+        img = PIL.Image.fromarray(frame).convert(mode='L')
+        images.append(img)
+    widths, heights = zip(*(img.size for img in images))
+    max_height = max(heights)
+    total_width = sum(widths)
+    new_image = PIL.Image.new('L', (total_width, max_height))
+    offset = 0
+    for img in images:
+        new_image.paste(img, (offset, 0))
+        offset += img.size[0]
+    return np.array(new_image)
+
+
+def take_action(env, action, frame_buffer):
+    _, reward, done, info = env.step(action)
+    img = env.render(mode='rgb_array')
+    img = img[34:-16, :, :]
+    frame_buffer.append(img)
+
+    new_img = merge_frames(frame_buffer)
+    new_img = new_img / 255
+
+    new_img = np.reshape(new_img, new_img.shape + (1,))
+
+    return new_img, reward, done, info
 
 
 def solve():
-    env = gym.make('MountainCar-v0')
+    FRAME_CNT = 3
+    frame_buffer = cll.deque(maxlen=FRAME_CNT)
+
+    env = gym.make('BreakoutDeterministic-v4')
+
+    LAUNCH_BALL_ACTION = 1
+    NEED_LAUNCH_BALL = False
+
+    tmp_st = env.reset()
+    for i in range(FRAME_CNT):
+        tmp_st, _, _, _ = take_action(env, env.action_space.sample(), frame_buffer)
+        plt.imshow(tmp_st)
+        plt.colorbar()
+        plt.show()
+
+    INPUT_SHAPE = tmp_st.shape
+
+    print('input_shape: ', INPUT_SHAPE)
 
     print('observation_space: ', env.observation_space)
     print('action_space: ', env.action_space, env.action_space.n)
     print('------------------------------')
 
-    episodes_count = 50
-    max_steps_count = 200
+    episodes_count = 100
+    max_steps_count = 1000
     batch_size = 20
     copy_period = 10
 
-    agent = Agent(env, episodes_count * max_steps_count)
+    agent = Agent(env, INPUT_SHAPE, episodes_count * max_steps_count)
     agent.q_network.summary()
 
     total_rewards = list()
@@ -95,8 +146,9 @@ def solve():
 
     for i_episode in range(episodes_count):
 
-        state = env.reset()
-        state = np.reshape(state, (1,) + env.observation_space.shape)
+        env.reset()
+        state, _, _, info = take_action(env, LAUNCH_BALL_ACTION, frame_buffer)
+        state = np.reshape(state, (1,) + INPUT_SHAPE)
 
         total_qs.append(Agent.get_best_value(agent.q_network, state))
 
@@ -107,13 +159,21 @@ def solve():
             # выбираем оптимальное действие из текущего состояния
             action = agent.get_action(state)
 
+            # принудительно запустим мяч, если необходимо
+            if NEED_LAUNCH_BALL:
+                action = LAUNCH_BALL_ACTION
+                print("need to launch the ball!")
+
             # делаем действие и получаем результаты
-            next_state, reward, done, info = env.step(action)
-            next_state = np.reshape(next_state, (1,) + env.observation_space.shape)
+            next_state, reward, done, new_info = take_action(env, action, frame_buffer)
+            next_state = np.reshape(next_state, (1,) + INPUT_SHAPE)
             total_reward += reward
 
-            # модифицируем награду
-            reward += 300 * (abs(next_state[0][1]) - abs(state[0][1]))
+            # делаем выводы из результатов
+            if info.get('ale.lives') != new_info.get('ale.lives'):
+                NEED_LAUNCH_BALL = True
+            else:
+                NEED_LAUNCH_BALL = False
 
             # сохраняем опыт
             agent.save_to_buffer(state, action, reward, next_state, done)
@@ -132,10 +192,11 @@ def solve():
                 agent.copy_weights()
 
             # рисуем текущее состояние среды
-            draw(env, i_episode, i_step, state, reward, agent.epsilon)
+            draw(env, i_episode, i_step, state, reward, info, agent.epsilon)
 
             # переходим в новое состояние
             state = next_state
+            info = new_info
 
         agent.copy_weights()
 
