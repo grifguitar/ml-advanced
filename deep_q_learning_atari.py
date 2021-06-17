@@ -76,10 +76,9 @@ class Agent:
 
 def draw(env, i_episode, i_step, state, reward, info, eps):
     # env.render()
-    state = np.reshape(state, (160, 480))
-    plt.imshow(state)
-    plt.colorbar()
-    plt.show()
+    # plt.imshow(np.reshape(state, (160, 480)))
+    # plt.colorbar()
+    # plt.show()
     print(i_episode, i_step, reward, info.get('ale.lives'), '%.4f' % eps)
 
 
@@ -125,7 +124,7 @@ def solve():
     tmp_st = env.reset()
     for i in range(FRAME_CNT):
         tmp_st, _, _, _ = take_action(env, env.action_space.sample(), frame_buffer)
-        plt.imshow(tmp_st)
+        plt.imshow(np.reshape(tmp_st, (160, -1)))
         plt.colorbar()
         plt.show()
 
