@@ -75,7 +75,11 @@ class Agent:
 
 
 def draw(env, i_episode, i_step, state, reward, info, eps):
-    env.render()
+    # env.render()
+    state = np.reshape(state, (160, 480))
+    plt.imshow(state)
+    plt.colorbar()
+    plt.show()
     print(i_episode, i_step, reward, info.get('ale.lives'), '%.4f' % eps)
 
 
