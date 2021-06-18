@@ -71,6 +71,12 @@ class Agent:
 
 
 def draw(env, i_episode, i_step, state, reward, eps):
+    img = env.render(mode='rgb_array')
+    plt.clf()
+    plt.title('frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
+    plt.axis('off')
+    plt.imshow(img)
+    plt.savefig('D:/new_images_car/frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
     # env.render()
     print(i_episode, i_step, state, reward, eps)
 
@@ -82,7 +88,7 @@ def solve():
     print('action_space: ', env.action_space, env.action_space.n)
     print('------------------------------')
 
-    episodes_count = 50
+    episodes_count = 40
     max_steps_count = 200
     batch_size = 20
     copy_period = 10
@@ -141,23 +147,25 @@ def solve():
 
         total_rewards.append(total_reward)
 
-    plt.title("total_rewards")
-    plt.plot(total_rewards)
-    plt.show()
+        plt.clf()
+        plt.title("total_rewards")
+        plt.plot(total_rewards)
+        plt.savefig('D:/new_images_car/total_rewards_{x}.png'.format_map({'x': i_episode}))
 
-    plt.title("total_qs")
-    plt.plot(total_qs)
-    plt.show()
+        plt.clf()
+        plt.title("total_qs")
+        plt.plot(total_qs)
+        plt.savefig('D:/new_images_car/total_qs_{x}.png'.format_map({'x': i_episode}))
 
-    model = agent.q_network
+        model = agent.q_network
 
-    # serialize model to JSON
-    model_json = model.to_json()
-    with open("new_model.json", "w") as json_file:
-        json_file.write(model_json)
-    # serialize weights to HDF5
-    model.save_weights("new_model.h5")
-    print("Saved model to disk")
+        # serialize model to JSON
+        model_json = model.to_json()
+        with open("new_model.json", "w") as json_file:
+            json_file.write(model_json)
+        # serialize weights to HDF5
+        model.save_weights("new_model.h5")
+        print("Saved model to disk")
 
     env.close()
 
