@@ -78,7 +78,7 @@ def draw(env, i_episode, i_step, state, reward, eps):
     plt.imshow(img)
     plt.savefig('D:/new_images_car/frame_{x}_{y}.png'.format_map({'x': i_episode, 'y': i_step}))
     # env.render()
-    print(i_episode, i_step, state, reward, eps)
+    print(i_episode, i_step, state, reward, '%.4f' % eps)
 
 
 def solve():
